@@ -1,0 +1,16 @@
+include "_tests"
+
+testFiles = "test"
+
+files = ${?tests} [
+        ${testFiles}".js"
+        //"templates/template1.js"
+]
+
+
+options = {
+    compilationLevel = "WHITESPACE"
+    languageIn = "ECMASCRIPT6"
+    languageOut = "ECMASCRIPT3"
+}
+
