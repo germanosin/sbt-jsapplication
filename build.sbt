@@ -4,7 +4,7 @@ organization := "com.github.germanosin.sbt"
 
 name := "sbt-jsapplication"
 
-version := "1.0-SNAPSHOT"
+version := "1.0.0"
 
 scalaVersion := "2.10.4"
 
