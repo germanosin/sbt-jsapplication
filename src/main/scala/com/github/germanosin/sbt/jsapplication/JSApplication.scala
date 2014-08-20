@@ -8,9 +8,11 @@ import com.typesafe.sbt.web.incremental.{OpInputHasher, OpSuccess}
 import sbt.Configuration
 import xsbti.{Severity, Problem}
 import com.typesafe.sbt.web.incremental._
-
+import com.typesafe.sbt.web.pipeline.Pipeline
 
 object Import {
+
+  val removeJSApplicationSourceMaps = TaskKey[Pipeline.Stage]("jsapplication-remove-sourcemaps", "Remove source map files.")
 
   object JSApplicationKeys {
     val jsapplication = TaskKey[Seq[File]]("jsapplication", "Invoke the jsapplication compiler")
@@ -29,7 +31,7 @@ object JSApplication extends AutoPlugin {
   override def trigger = AllRequirements
 
   val autoImport = Import
-
+  import autoImport._
   import SbtWeb.autoImport._
   import WebKeys._
   import autoImport.JSApplicationKeys._
@@ -39,7 +41,9 @@ object JSApplication extends AutoPlugin {
   private[jsapplication] def FileOpResultMappings(s: (File, OpResult)*): FileOpResultMappings = Map(s: _*)
 
   val jsApplicationUnscopedSettings = Seq(
-    includeFilter := GlobFilter("main.jsapplication")
+    includeFilter := GlobFilter("main.jsapplication"),
+    sourceMap := sourceMap.value,
+    compilationLevel := compilationLevel.value
   )
 
 
@@ -64,7 +68,7 @@ object JSApplication extends AutoPlugin {
 
               val replaceName = ".min.js"
               val targetJs = targetDir / modifiedPath.replaceAll("\\.jsapplication", replaceName)
-              val targetMap = targetDir / modifiedPath.replaceAll("\\.jsapplication", ".js.map")
+              val targetMap = targetDir / modifiedPath.replaceAll("\\.jsapplication", replaceName+".map")
               val targetPath = targetJs.getParentFile
               val sourceDirs = List(modifiedSource.getParentFile) ++ (sourceDirectories in task in config).value ++ (resourceDirectories in task in config).value ++ (webModuleDirectories in task in config).value
 
@@ -94,19 +98,20 @@ object JSApplication extends AutoPlugin {
     filesWritten.toSeq
   }
 
-  override def projectSettings: Seq[Setting[_]] =  inTask(jsapplication)(
+  override def projectSettings: Seq[Setting[_]] =  Seq(
+        compilationLevel in Assets := "SIMPLE",
+        compilationLevel in TestAssets := "SIMPLE",
+        sourceMap in Assets := true,
+        sourceMap in TestAssets := true
+    ) ++ inTask(jsapplication)(
     inConfig(Assets)(jsApplicationUnscopedSettings) ++
       inConfig(TestAssets)(jsApplicationUnscopedSettings) ++
       Seq(
         moduleName := "JSApplication",
         taskMessage in Assets := "JSApplication compiling",
         taskMessage in TestAssets := "JSApplication test compiling",
-        compilationLevel in Assets := "SIMPLE",
-        compilationLevel in TestAssets := "SIMPLE",
         includeFilter in Assets := "*.jsapplication",
-        excludeFilter in TestAssets := "_*.jsapplication",
-        sourceMap in Assets := true,
-        sourceMap in TestAssets := true
+        excludeFilter in TestAssets := "_*.jsapplication"
       )
   )  ++ addJSApplicationFilesTasks(jsapplication) ++ Seq(
     includeFilter in jsapplication := "*.jsapplication",
@@ -116,7 +121,8 @@ object JSApplication extends AutoPlugin {
       OpInputHash.hashString(f.getAbsolutePath)
     ),
     jsapplication in Assets := (jsapplication in Assets).dependsOn(webModules in Assets).value,
-    jsapplication in TestAssets := (jsapplication in TestAssets).dependsOn(webModules in TestAssets).value
+    jsapplication in TestAssets := (jsapplication in TestAssets).dependsOn(webModules in TestAssets).value,
+    removeJSApplicationSourceMaps := removeSources.value
   )
 
   def  addJSApplicationFilesTasks(sourceFileTask: TaskKey[Seq[File]]) : Seq[Setting[_]] = {
@@ -136,5 +142,13 @@ object JSApplication extends AutoPlugin {
       resourceGenerators <+= sourceFileTask,
       managedResourceDirectories += (resourceManaged in sourceFileTask).value
     )
+  }
+
+  private def removeSources: Def.Initialize[Task[Pipeline.Stage]] = Def.task {
+    mappings =>
+
+      val mappingsToRemove = mappings.filter(f => f._1.getName.endsWith(".map") || f._1.getName.endsWith(".jsapplication"))
+
+      (mappings.toSet -- mappingsToRemove.toSet).toSeq
   }
 }

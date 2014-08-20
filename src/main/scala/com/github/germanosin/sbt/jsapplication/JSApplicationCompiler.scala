@@ -31,8 +31,10 @@ class JSApplicationCompiler(val source:File, target:File, targetSourceMap:File, 
     if (isSourceMap) {
 
       val sourceMapLocationMappings = sourceDirs.map(
-        sourceDir => new SourceMap.LocationMapping(sourceDir+File.separator, "")
+        sourceDir => new SourceMap.LocationMapping(sourceDir.getAbsolutePath.replaceAll("\\\\","\\/")+"/", "")
       ).toList
+
+
 
       options.setSourceMapOutputPath(targetSourceMap.getAbsolutePath)
       options.setSourceMapFormat(SourceMap.Format.DEFAULT)
@@ -52,9 +54,16 @@ class JSApplicationCompiler(val source:File, target:File, targetSourceMap:File, 
         val result = compiler.compile(externs,inputs,compilerOptions)
         result.success match {
           case true => {
-            scala.tools.nsc.io.File(target).writeAll(compiler.toSource)
             val readSources = files.toSet ++ Set(source)
             var writtenSources:Set[File] = Set(target)
+
+            val sourceMapAddon = if (isSourceMap) s"""
+              //# sourceMappingURL=${targetSourceMap.getName}
+            """ else ""
+            val sourceContent = compiler.toSource + sourceMapAddon
+            // //# sourceMappingURL=/path/to/file.js.map
+            scala.tools.nsc.io.File(target).writeAll(sourceContent)            
+
 
             if (isSourceMap) {
               targetSourceMap.createNewFile()
