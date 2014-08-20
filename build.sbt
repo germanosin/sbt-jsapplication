@@ -49,6 +49,7 @@ pomExtra := (
         <id>germanosin</id>
         <name>German Osin</name>
       </developer>
-    </developers>,
-    useGpg := true
+    </developers>
   )
+
+  useGpg := true  

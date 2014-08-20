@@ -25,3 +25,7 @@ Add a dependency to the plugins.sbt file:
 ```scala
 addSbtPlugin("com.github.germanosin.sbt" % "sbt-jsappliction" % "1.0.0")
 ```
+
+## Author
+
+German Osin
